@@ -1,0 +1,19 @@
+[project]
+name = "comfyui-imagewithmetadata"
+description = "Save and load images with prompts and generation metadata. Batch image loading with metadata extraction for ComfyUI"
+version = "1.0.0"
+license = {file = "LICENSE"}
+
+classifiers = [
+    "Operating System :: OS Independent",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Environment :: GPU :: AMD ROCm",
+]
+
+[project.urls]
+Repository = "https://github.com/shin131002/ComfyUI-ImageWithMetadata"
+
+[tool.comfy]
+PublisherId = "konohana"
+DisplayName = "Image with Metadata"
+Icon = ""
