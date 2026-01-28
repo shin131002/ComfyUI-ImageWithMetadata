@@ -7,6 +7,9 @@ ComfyUI用のカスタムノードで、メタデータ抽出機能付きバッ�
 ## 機能
 
 ### Load Image with Metadata（メタデータ付き画像読み込み）
+
+![Load Image with Metadata workflow example](./images/load_01.webp)
+
 - **バッチ処理**: フォルダ内の画像を順次読み込み
 - **メタデータ抽出**: 保存された画像からプロンプト、seed、steps、CFGを抽出
 - **2つのモード**: 
@@ -17,6 +20,9 @@ ComfyUI用のカスタムノードで、メタデータ抽出機能付きバッ�
 - **ループ対応**: 最後の画像に到達したら自動的に最初に戻る
 
 ### Save Image with Metadata（メタデータ付き画像保存）
+
+![Save Image with Metadata workflow example](./images/save_01.webp)
+
 - **包括的なメタデータ**: すべての生成パラメータを保存
 - **複数フォーマット**: PNG、WebP、JPG
 - **二重出力**: PNGメタデータ + オプションのテキストファイル
@@ -24,17 +30,37 @@ ComfyUI用のカスタムノードで、メタデータ抽出機能付きバッ�
 - **日付ベースの命名**: 日付による自動フォルダ整理
 
 ### Checkpoint Loader with Names（名前付きチェックポイントローダー）
+
+![Checkpoint Loader with Names使用例](./images/cp.webp)
+
 - **モデル名出力**: チェックポイント名をSTRINGとして出力
 - **VAE名出力**: VAE名をSTRINGとして出力
 - **Baked VAE対応**: チェックポイント内蔵VAEを使用するオプション
 - **Saveノードと接続**: モデル/VAE名をSaveImageWithMetadataに渡す
+
+### Random Checkpoint Loader with Names（ランダムチェックポイントローダー）
+
+![Random Checkpoint Loader with Names使用例](./images/random_cp.webp)
+
+![Random Checkpoint Loader with Names使用例](./images/random_cp_single01.webp)
+
+![Random Checkpoint Loader with Names使用例](./images/random_cp_single02.webp)
+
+- **2つのモード**: 
+  - `single`: 外部indexで順次切り替え（バッチ処理）
+  - `random`: seedベースのランダム選択
+- **フォルダ指定**: 特定フォルダ以下のチェックポイントのみ選択
+- **サブフォルダ対応**: サブフォルダ内のモデルも検索可能
+- **パターンフィルタ**: ファイル名でフィルタリング（例: `anime_*`）
+- **BaseModel別管理**: SDXL/SD1.5/Illustriousなどを分けて使用可能
+- **名前出力**: モデル名とVAE名をSTRINGで出力
 
 ## インストール
 
 1. ComfyUIのcustom_nodesフォルダにこのリポジトリをクローンまたはダウンロード:
 ```bash
 cd ComfyUI/custom_nodes/
-git clone https://github.com/YOUR_USERNAME/ComfyUI-ImageWithMetadata.git ImageWithMetadata
+git clone https://github.com/shin131002/ComfyUI-ImageWithMetadata.git ImageWithMetadata
 ```
 
 2. ComfyUIを再起動
@@ -56,6 +82,8 @@ git clone https://github.com/YOUR_USERNAME/ComfyUI-ImageWithMetadata.git ImageWi
    - `path`: 画像フォルダのパスを設定
    - Integer の出力を `index` 入力に接続
 3. 両方のノードを選択 → 右クリック → **Convert to Group**
+
+![Convert to Group example](./images/load_02.webp)
 
 これで統合されたバッチ処理ノードが完成！
 
@@ -95,7 +123,18 @@ git clone https://github.com/YOUR_USERNAME/ComfyUI-ImageWithMetadata.git ImageWi
 
 ## 使用例
 
-### 例1: 自動アップスケールワークフロー
+### 例1: 複数モデルで自動バッチ生成
+```
+Integer (increment, value=0)
+  ↓
+Random Checkpoint Loader with Names (single mode)
+  ├→ path: F:\models\SDXL
+  ├→ index: ← Integer接続
+  ├→ checkpoint_name → Save Image with Metadata
+  └→ MODEL, CLIP, VAE → KSampler
+```
+
+### 例2: 自動アップスケールワークフロー
 ```
 Integer (increment, value=0)
   ↓
@@ -106,7 +145,7 @@ Upscale Model
 Save Image with Metadata
 ```
 
-### 例2: img2imgバッチ処理
+### 例3: img2imgバッチ処理
 ```
 Integer (increment, value=50)  ← 51枚目から開始
   ↓
@@ -208,8 +247,16 @@ IssuesとPull Requestsは歓迎しますが、時間的制約により対応時�
 
 ## 変更履歴
 
+### v1.1.0 (2026-01-26)
+- Random Checkpoint Loader with Names ノード追加
+  - single/randomモードでチェックポイントを切り替え
+  - フォルダ指定・サブフォルダ対応
+  - パターンフィルタ機能
+  - BaseModel別管理に対応
+
 ### v1.0.0 (2026-01-25)
 - 初回リリース
 - Load Image with Metadata ノード
 - Save Image with Metadata ノード
+- Checkpoint Loader with Names ノード
 - WAS Node Suite の BatchImageLoader パターンをベースに実装

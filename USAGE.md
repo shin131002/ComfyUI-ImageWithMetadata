@@ -1,6 +1,6 @@
 # Load Image with Metadata - Usage Guide
 
-[日本語版](USAGE_ja.md) | **English**
+**English** | [日本語版](USAGE_ja.md)
 
 ## Recommended Pattern: Group Node Integration
 
@@ -58,6 +58,7 @@
 │  - seed, steps, cfg              │
 └──────────────────────────────────┘
 ```
+![Convert to Group example](./images/load_02.webp)
 
 **How it works:**
 1. First execution: index=50 → loads 51st image
@@ -174,8 +175,168 @@ A: Change label for each (e.g., "Folder_A", "Folder_B")
 **Q: Want to search including subfolders**
 A: Use `**/*` in pattern (recursive search)
 
-**Q: What happens after reaching the last image?**
-A: Automatically loops back to the first image
+---
+
+## License
+
+This node is based on code from WAS Node Suite (MIT License).
+https://github.com/WASasquatch/was-node-suite-comfyui
+
+---
+
+# Random Checkpoint Loader with Names - Usage Guide
+
+## Overview
+
+Node for generating images while switching between multiple checkpoints sequentially or randomly.
+
+## ⚠️ Important: Path Specification Recommended
+
+**If checkpoints with different BaseModels (SD1.5/SDXL/Illustrious/SD3.5, etc.) are mixed, unintended models may be loaded, causing errors.**
+
+### ✅ Recommended Settings
+```
+path: F:\models\SDXL
+sub_folders: true
+pattern: *
+```
+
+### ⚠️ Not Recommended
+```
+path: (empty)
+→ Selects from all checkpoints folders (risk of SD1.5/SDXL/SD3 mixing)
+```
+
+---
+
+## Parameter Details
+
+### mode
+- `single`: Sequential switching with external index (recommended)
+  - Use with Integer node (increment)
+  - Optimal for batch processing
+- `random`: Seed-based random selection
+  - Different model each time
+  - Reproducible with same seed
+
+### seed
+- Seed value for random mode
+- Ignored in single mode
+- Same seed = same model selection
+
+### path (Important)
+- **Empty**: Select from all checkpoints folders (not recommended)
+- **Absolute path**: Select from specified folder (recommended)
+- Examples: `C:\models\SDXL`, `F:\checkpoints\Illustrious`
+- Falls back to checkpoints folder if path doesn't exist
+
+### sub_folders
+- `false`: Specified folder only
+- `true`: Include subfolders (recursive search)
+
+### pattern
+- `*`: All files
+- `anime_*`: Files starting with "anime_"
+- `*.safetensors`: safetensors only
+- `character_*`: Files starting with "character_"
+
+### label
+- Identifier when using multiple nodes
+- Use different labels for different folders
+- Examples: "SDXL_Batch", "Illustrious_Test"
+
+### index
+- For single mode
+- Connect from external Integer node (increment)
+- Loops back to start when exceeding list length
+
+### vae_name
+- `Baked VAE`: Checkpoint's baked VAE
+- Others: Select external VAE
+
+---
+
+## Usage Examples
+
+### Example 1: Sequential Batch Generation with Illustrious Models
+
+![Random Checkpoint Loader - Single Mode](./images/random_cp_single01.webp)
+
+```
+Integer (increment, value=0)
+  ↓
+Random Checkpoint Loader with Names
+  ├─ mode: single
+  ├─ path: F:\models\SDXL
+  ├─ sub_folders: true
+  ├─ pattern: *
+  ├─ label: SDXL_Batch
+  └─ index: ← Integer connection
+    ↓
+  checkpoint_name → Save Image with Metadata
+  MODEL, CLIP, VAE → KSampler
+```
+
+**Operation:**
+1. 1st time: 1st model in F:\models\SDXL
+2. 2nd time: 2nd model
+3. 3rd time: 3rd model
+4. ...automatically switches sequentially
+
+---
+
+### Example 2: Random Model Selection
+
+```
+Random Checkpoint Loader with Names
+  ├─ mode: random
+  ├─ seed: 12345
+  ├─ path: F:\models\Illustrious
+  └─ pattern: *.safetensors
+    ↓
+  Generates with random model each time
+```
+
+---
+
+### Example 3: Specific Named Models Only
+
+![Random Checkpoint Loader - Single Mode](./images/random_cp_single02.webp)
+
+```
+Random Checkpoint Loader with Names
+  ├─ mode: single
+  ├─ path: F:\models\characters
+  ├─ sub_folders: false
+  ├─ pattern: wai*
+  └─ label: wai_CP
+```
+
+Only models starting with `wai` directly under F:\models\characters
+
+---
+
+## FAQ
+
+**Q: Want to switch between multiple BaseModel folders**
+A: Use multiple nodes with different labels
+```
+Node 1: path=F:\SDXL, label=SDXL_Batch
+Node 2: path=F:\SD15, label=SD15_Batch
+```
+
+**Q: What happens with index=100 when only 10 models exist?**
+A: Automatically loops (100 % 10 = 0 → 1st model)
+
+**Q: What happens if path is empty?**
+A: Selects from all checkpoints folders, but not recommended due to BaseModel mixing
+
+**Q: Getting "Model not found" error**
+A: 
+1. Verify path is correct
+2. Check sub_folders setting
+3. Verify pattern is correct
+4. Check extra_model_paths.yaml configuration
 
 ---
 

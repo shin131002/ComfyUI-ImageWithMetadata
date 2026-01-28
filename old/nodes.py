@@ -23,7 +23,7 @@ class SimpleCounterDB:
     def load(self):
         if os.path.exists(self.db_file):
             try:
-                with open(self.db_file, 'r', encoding='utf-8') as f:
+                with open(self.db_file, 'r') as f:
                     return json.load(f)
             except:
                 return {}
@@ -31,7 +31,7 @@ class SimpleCounterDB:
     
     def save(self):
         try:
-            with open(self.db_file, 'w', encoding='utf-8') as f:
+            with open(self.db_file, 'w') as f:
                 json.dump(self.data, f)
         except:
             pass
@@ -627,169 +627,15 @@ class CheckpointLoaderWithNames:
         return (model, clip, vae, ckpt_name, actual_vae_name)
 
 
-class RandomCheckpointLoaderWithNames:
-    """
-    Random/Sequential checkpoint loader with metadata output
-    Load checkpoints randomly or sequentially from folder with filtering options
-    """
-    
-    def __init__(self):
-        self.HDB = counter_db
-    
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "mode": (["single", "random"],),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "step": 1}),
-                "path": ("STRING", {"default": "", "multiline": False}),
-                "sub_folders": (["false", "true"],),
-                "pattern": ("STRING", {"default": "*", "multiline": False}),
-                "label": ("STRING", {"default": "Batch 001", "multiline": False}),
-                "index": ("INT", {"default": 0, "min": 0, "max": 150000, "step": 1}),
-            },
-            "optional": {
-                "vae_name": (["Baked VAE"] + folder_paths.get_filename_list("vae"),),
-            }
-        }
-    
-    RETURN_TYPES = ("MODEL", "CLIP", "VAE", "STRING", "STRING")
-    RETURN_NAMES = ("model", "clip", "vae", "checkpoint_name", "vae_name")
-    FUNCTION = "load_checkpoint"
-    CATEGORY = "loaders"
-    
-    def load_checkpoint(self, mode, seed, path, sub_folders, pattern, label, index, vae_name="Baked VAE"):
-        # Get checkpoint list
-        checkpoint_list = self.get_checkpoint_list(path, sub_folders, pattern)
-        
-        if not checkpoint_list:
-            raise ValueError(f"No checkpoints found with path='{path}', pattern='{pattern}'")
-        
-        # Check if settings changed (for counter reset)
-        counter_key = f"{path}_{sub_folders}_{pattern}"
-        stored_key = self.HDB.get_pattern(label)  # Reusing pattern storage for counter_key
-        
-        if stored_key != counter_key:
-            self.HDB.set_counter(label, 0)
-            self.HDB.set_pattern(label, counter_key)
-        
-        # Select checkpoint based on mode
-        if mode == "single":
-            # Single mode: use index with loop
-            selected_index = index % len(checkpoint_list)
-            ckpt_name = checkpoint_list[selected_index]
-        else:  # random
-            # Random mode: use seed
-            import random
-            random.seed(seed)
-            ckpt_name = random.choice(checkpoint_list)
-        
-        # Load checkpoint
-        from nodes import CheckpointLoaderSimple, VAELoader
-        loader = CheckpointLoaderSimple()
-        
-        try:
-            model, clip, vae_loaded = loader.load_checkpoint(ckpt_name)
-        except Exception as e:
-            raise ValueError(f"Failed to load checkpoint '{ckpt_name}': {str(e)}")
-        
-        actual_vae_name = ""
-        
-        # VAE processing
-        if vae_name == "Baked VAE":
-            # Use baked VAE from checkpoint
-            vae = vae_loaded
-            actual_vae_name = f"{ckpt_name} (Baked VAE)"
-        else:
-            # Load external VAE
-            vae_loader = VAELoader()
-            vae = vae_loader.load_vae(vae_name)[0]
-            actual_vae_name = vae_name
-        
-        return (model, clip, vae, ckpt_name, actual_vae_name)
-    
-    def get_checkpoint_list(self, path, sub_folders, pattern):
-        """Get list of checkpoint files based on path, sub_folders, and pattern"""
-        checkpoint_list = []
-        
-        # Determine base path
-        if not path or path.strip() == "":
-            # Empty path: use default checkpoints folder
-            base_paths = folder_paths.get_folder_paths("checkpoints")
-            if not base_paths:
-                return []
-            base_path = base_paths[0]
-        elif not os.path.exists(path):
-            # Path doesn't exist: fallback to checkpoints folder
-            print(f"Warning: Path '{path}' not found, using default checkpoints folder")
-            base_paths = folder_paths.get_folder_paths("checkpoints")
-            if not base_paths:
-                return []
-            base_path = base_paths[0]
-        else:
-            # Valid path
-            base_path = os.path.abspath(path)
-        
-        # Get files based on sub_folders setting
-        allowed_extensions = ('.safetensors', '.ckpt', '.pt')
-        
-        if sub_folders == "true":
-            # Include subfolders (recursive)
-            search_pattern = os.path.join(glob.escape(base_path), "**", pattern)
-            files = glob.glob(search_pattern, recursive=True)
-        else:
-            # Only specified folder (non-recursive)
-            search_pattern = os.path.join(glob.escape(base_path), pattern)
-            files = glob.glob(search_pattern, recursive=False)
-        
-        # Get checkpoint base path for relative path calculation
-        checkpoint_base_paths = folder_paths.get_folder_paths("checkpoints")
-        
-        # Filter checkpoint files and convert to relative paths
-        for file_path in files:
-            if os.path.isfile(file_path) and file_path.lower().endswith(allowed_extensions):
-                # Convert to relative path from checkpoints folder
-                # This is needed for CheckpointLoaderSimple to find the file
-                file_added = False
-                
-                # Try to find which checkpoint base path this file belongs to
-                for ckpt_base in checkpoint_base_paths:
-                    try:
-                        # Get relative path from this checkpoint base
-                        rel_path = os.path.relpath(file_path, ckpt_base)
-                        # If the relative path doesn't go up (..), it's under this base
-                        if not rel_path.startswith('..'):
-                            # Use forward slashes for ComfyUI compatibility
-                            rel_path = rel_path.replace('\\', '/')
-                            checkpoint_list.append(rel_path)
-                            file_added = True
-                            break
-                    except ValueError:
-                        # Different drives on Windows
-                        continue
-                
-                # If file wasn't under any checkpoint base, just use basename
-                if not file_added:
-                    checkpoint_list.append(os.path.basename(file_path))
-        
-        # Remove duplicates and sort
-        checkpoint_list = list(set(checkpoint_list))
-        checkpoint_list.sort()
-        
-        return checkpoint_list
-
-
 # Node mappings
 NODE_CLASS_MAPPINGS = {
     "SaveImageWithMetadata": SaveImageWithMetadata,
     "LoadImageWithMetadata": LoadImageWithMetadata,
     "CheckpointLoaderWithNames": CheckpointLoaderWithNames,
-    "RandomCheckpointLoaderWithNames": RandomCheckpointLoaderWithNames,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SaveImageWithMetadata": "Save Image with Metadata",
     "LoadImageWithMetadata": "Load Image with Metadata",
     "CheckpointLoaderWithNames": "Checkpoint Loader with Names",
-    "RandomCheckpointLoaderWithNames": "Random Checkpoint Loader with Names",
 }

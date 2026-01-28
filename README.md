@@ -1,6 +1,6 @@
 # ComfyUI ImageWithMetadata Nodes
 
-[日本語版 README](README_ja.md) | **English**
+**English** | [日本語版 README](README_ja.md)
 
 Custom nodes for ComfyUI that enable batch image loading with metadata extraction and saving with comprehensive metadata embedding.
 
@@ -30,17 +30,37 @@ Custom nodes for ComfyUI that enable batch image loading with metadata extractio
 - **Date-based naming**: Automatic folder organization by date
 
 ### Checkpoint Loader with Names
+
+![Checkpoint Loader with Names example](./images/cp.webp)
+
 - **Model name output**: Returns checkpoint name as STRING
 - **VAE name output**: Returns VAE name as STRING
 - **Baked VAE support**: Option to use checkpoint's baked VAE
 - **Connect to Save node**: Pass model/VAE names to SaveImageWithMetadata
+
+### Random Checkpoint Loader with Names
+
+![Random Checkpoint Loader with Names example](./images/random_cp.webp)
+
+![Random Checkpoint Loader with Names example](./images/random_cp_single01.webp)
+
+![Random Checkpoint Loader with Names example](./images/random_cp_single02.webp)
+
+- **Two modes**: 
+  - `single`: Sequential switching with external index (batch processing)
+  - `random`: Seed-based random selection
+- **Folder specification**: Select checkpoints only from specific folder
+- **Subfolder support**: Search models in subfolders
+- **Pattern filter**: Filter by filename (e.g., `anime_*`)
+- **BaseModel management**: Separate SDXL/SD1.5/Illustrious usage
+- **Name output**: Model and VAE names as STRING
 
 ## Installation
 
 1. Clone or download this repository into your ComfyUI custom_nodes folder:
 ```bash
 cd ComfyUI/custom_nodes/
-git clone https://github.com/YOUR_USERNAME/ComfyUI-ImageWithMetadata.git ImageWithMetadata
+git clone https://github.com/shin131002/ComfyUI-ImageWithMetadata.git ImageWithMetadata
 ```
 
 2. Restart ComfyUI
@@ -49,7 +69,7 @@ No additional dependencies required - uses ComfyUI's built-in libraries.
 
 ## Usage
 
-For detailed usage instructions, see [USAGE_en.md](USAGE.md) (English) or [USAGE_ja.md](USAGE_ja.md) (日本語).
+For detailed usage instructions, see [USAGE.md](USAGE.md) (English) or [USAGE_ja.md](USAGE_ja.md) (日本語).
 
 ### Quick Start: Batch Upscaling
 
@@ -103,7 +123,29 @@ Connect generation parameters from other nodes for complete metadata capture.
 
 ## Examples
 
-### Example: img2img Batch Processing
+### Example 1: Auto Batch Generation with Multiple Models
+```
+Integer (increment, value=0)
+  ↓
+Random Checkpoint Loader with Names (single mode)
+  ├→ path: F:\models\SDXL
+  ├→ index: ← Integer connection
+  ├→ checkpoint_name → Save Image with Metadata
+  └→ MODEL, CLIP, VAE → KSampler
+```
+
+### Example 2: Auto Upscaling Workflow
+```
+Integer (increment, value=0)
+  ↓
+Load Image with Metadata (single_image)
+  ↓
+Upscale Model
+  ↓
+Save Image with Metadata
+```
+
+### Example 3: img2img Batch Processing
 ```
 Integer (increment, value=50)  ← Start from 51st image
   ↓
@@ -161,35 +203,60 @@ worst quality, ...
 - Check if text file exists (filename.txt)
 - Supported formats: This node's format, A1111 format
 
-## Credits
+## Credits and License
 
-Based on **WAS Node Suite** by WASasquatch:
-- https://github.com/WASasquatch/was-node-suite-comfyui
-- Licensed under MIT License
+This project is based on **WAS Node Suite** by WASasquatch.
+- Repository: https://github.com/WASasquatch/was-node-suite-comfyui
+- License: MIT License
+
+The `LoadImageWithMetadata` node uses the `BatchImageLoader` pattern from WAS Node Suite with added metadata extraction functionality.
 
 ## License
 
 MIT License - See [LICENSE](LICENSE) file for details.
 
+When using or distributing this software, please maintain attribution to both:
+- This project
+- WAS Node Suite (original BatchImageLoader implementation)
+
 ## Support Policy
 
-This is a personal project with limited support. See README for full disclaimer.
+This is a personal project provided free of charge with limited support:
+
+**Not provided:**
+- Individual technical support
+- Guaranteed bug fixes or feature additions
+- Guaranteed compatibility with future ComfyUI updates
 
 **Provided:**
-- ✅ Open source code
+- ✅ Open source code (free to modify and fork)
 - ✅ Basic documentation
-- ✅ Community discussions
+- ✅ GitHub discussions (responses not guaranteed)
 
-**Not guaranteed:**
-- Individual support
-- Bug fixes
-- Future compatibility
+**If you encounter issues:**
+1. Check this README and USAGE.md/USAGE_ja.md
+2. Search existing issues
+3. Open a new issue (responses not guaranteed)
+4. Fork and fix yourself (MIT License)
 
-**Disclaimer:** Provided "as is" without warranty. Use at your own risk.
+**Disclaimer:** This software is provided "as is" without warranty of any kind. The author is not responsible for any damages arising from the use of this software.
+
+## Contributing
+
+Issues and Pull Requests are welcome, but please note that response time may vary due to time constraints.
 
 ## Changelog
+
+### v1.1.0 (2026-01-26)
+- Added Random Checkpoint Loader with Names node
+  - single/random mode for checkpoint switching
+  - Folder specification and subfolder support
+  - Pattern filter functionality
+  - BaseModel-specific management support
 
 ### v1.0.0 (2026-01-25)
 - Initial release
 - Load Image with Metadata node
 - Save Image with Metadata node
+- Checkpoint Loader with Names node
+- Based on WAS Node Suite's BatchImageLoader pattern

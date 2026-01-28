@@ -1,6 +1,6 @@
 # Load Image with Metadata - 使い方
 
-**日本語** | [English](USAGE.md)
+**日本語** | [English](USAGE_en.md)
 
 ## 推奨パターン: Group Node化して使用
 
@@ -21,6 +21,7 @@
 
 3. **接続**
    - Integer の value → Load Image with Metadata の index
+
 
 ### 手順2: Group Node化
 
@@ -58,6 +59,8 @@
 │  - seed, steps, cfg              │
 └──────────────────────────────────┘
 ```
+![Convert to Group example](./images/load_02.webp)
+
 
 **動作:**
 1. 最初の実行: index=50 → 51枚目を処理
@@ -178,4 +181,167 @@ A: pattern に `**/*` を使用（recursive検索）
 ## ライセンス
 
 このノードはWAS Node Suite (MIT License) のコードを基にしています。
+https://github.com/WASasquatch/was-node-suite-comfyui
+
+---
+
+# Random Checkpoint Loader with Names - 使い方
+
+## 概要
+
+複数のチェックポイントを順番に、またはランダムに切り替えながら画像生成を行うノードです。
+
+## ⚠️ 重要：path指定を推奨
+
+**BaseModel（SD1.5/SDXL/Illustrious/SD3.5など）が異なるチェックポイントが混在している場合、意図しないモデルが読み込まれてエラーの原因になります。**
+
+### ✅ 推奨設定
+```
+path: F:\models\SDXL
+sub_folders: true
+pattern: *
+```
+
+### ⚠️ 非推奨設定
+```
+path: （空欄）
+→ 全checkpointsフォルダから選択（SD1.5/SDXL/SD3混在の危険）
+```
+
+---
+
+## パラメータ詳細
+
+### mode
+- `single`: 外部indexで順次切り替え（推奨）
+  - Integerノード（increment）と接続して使用
+  - バッチ処理に最適
+- `random`: seedベースのランダム選択
+  - 毎回異なるモデルで生成
+  - seedが同じなら再現可能
+
+### seed
+- ランダムモード用のseed値
+- singleモードでは無視される
+- 同じseedなら同じモデルが選ばれる
+
+### path（重要）
+- **空欄**: 全checkpointsフォルダから選択（非推奨）
+- **絶対パス指定**: 指定フォルダ以下から選択（推奨）
+- 例: `C:\models\SDXL`, `F:\checkpoints\Illustrious`
+- フォルダが存在しない場合は自動でcheckpointsフォルダにフォールバック
+
+### sub_folders
+- `false`: 指定フォルダ直下のみ
+- `true`: サブフォルダ含む（再帰検索）
+
+### pattern
+- `*`: すべてのファイル
+- `anime_*`: anime_で始まるファイル
+- `*.safetensors`: safetensorsのみ
+- `character_*`: character_で始まるファイル
+
+### label
+- 複数のノードを使う場合の識別子
+- 異なるフォルダを処理する場合は別のlabelを使用
+- 例: "SDXL_Batch", "Illustrious_Test"
+
+### index
+- singleモード用
+- 外部Integerノード（increment）から接続
+- リスト数を超えると先頭に戻る（ループ）
+
+### vae_name
+- `Baked VAE`: チェックポイント内蔵VAE
+- その他: 外部VAEを選択
+
+---
+
+## 使用例
+
+### 例1: illustriousモデルで順次バッチ生成
+
+![Random Checkpoint Loader - Single Mode](./images/random_cp_single01.webp)
+
+```
+Integer (increment, value=0)
+  ↓
+Random Checkpoint Loader with Names
+  ├─ mode: single
+  ├─ path: F:\models\SDXL
+  ├─ sub_folders: true
+  ├─ pattern: *
+  ├─ label: SDXL_Batch
+  └─ index: ← Integer接続
+    ↓
+  checkpoint_name → Save Image with Metadata
+  MODEL, CLIP, VAE → KSampler
+```
+
+**動作:**
+1. 1回目: F:\models\SDXL内の1番目のモデル
+2. 2回目: 2番目のモデル
+3. 3回目: 3番目のモデル
+4. ...自動で順次切り替え
+
+---
+
+### 例2: ランダムモデル選択
+
+```
+Random Checkpoint Loader with Names
+  ├─ mode: random
+  ├─ seed: 12345
+  ├─ path: F:\models\Illustrious
+  └─ pattern: *.safetensors
+    ↓
+  毎回ランダムなモデルで生成
+```
+
+---
+
+### 例3: 特定の名前のモデルのみ
+
+![Random Checkpoint Loader - Single Mode](./images/random_cp_single02.webp)
+
+```
+Random Checkpoint Loader with Names
+  ├─ mode: single
+  ├─ path: F:\models\characters
+  ├─ sub_folders: false
+  ├─ pattern: wai*
+  └─ label: wai_CP
+```
+
+F:\models\characters直下の`wai`で始まるモデルのみ対象
+
+---
+
+## FAQ
+
+**Q: 複数のBaseModelフォルダを切り替えたい**
+A: 複数のノードを配置し、labelを変えて使用
+```
+ノード1: path=F:\SDXL, label=SDXL_Batch
+ノード2: path=F:\SD15, label=SD15_Batch
+```
+
+**Q: index=100で10個しかモデルがない場合は？**
+A: 自動でループ（100 % 10 = 0 → 1番目のモデル）
+
+**Q: pathを空欄にするとどうなる？**
+A: 全checkpointsフォルダから選択されるが、BaseModelが混在するため非推奨
+
+**Q: エラー "Model not found" が出る**
+A: 
+1. pathが正しいか確認
+2. sub_foldersの設定を確認
+3. patternが正しいか確認
+4. extra_model_paths.yamlの設定を確認
+
+---
+
+## ライセンス
+
+このノードはWAS Node Suite (MIT License)のコードを基にしています。
 https://github.com/WASasquatch/was-node-suite-comfyui
